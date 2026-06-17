@@ -36,7 +36,7 @@ jobs:
         run: npm install -g @tauri-apps/cli
 
       - name: Build Tauri app
-        run: npx tauri build --target x86_64-pc-windows-msvc
+        run: npx tauri build --target x86_64-pc-windows-msvc --bundles nsis
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -44,7 +44,6 @@ jobs:
           name: windows-artifacts
           path: |
             src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
-            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
 
       - name: Upload to Release
         if: startsWith(github.ref, 'refs/tags/')
@@ -52,7 +51,6 @@ jobs:
         with:
           files: |
             src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
-            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
 
   build-macos:
     name: Build macOS
