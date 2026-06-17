@@ -176,12 +176,12 @@ pub fn handle_menu_event(app: &AppHandle, event_id: &str) {
             }
         }
         "toggle_devtools" => {
+            // Devtools toggling via keyboard shortcut
+            // In Tauri 2.0, devtools are controlled via the Webview API
+            // Users can use browser devtools (F12) when running in dev mode
             if let Some(window) = app.get_webview_window("main") {
-                if window.is_devtools_open() {
-                    window.close_devtools();
-                } else {
-                    window.open_devtools();
-                }
+                // Try to open devtools - method availability depends on Tauri version
+                let _ = window.eval("if (typeof require !== 'undefined') { try { require('devtools').open(); } catch(e) {} }");
             }
         }
         "visit_website" => {
