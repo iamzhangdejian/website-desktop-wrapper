@@ -35,10 +35,13 @@ jobs:
       - name: Install Tauri CLI
         run: npm install -g @tauri-apps/cli
 
-      - name: Build Tauri app
-        run: npx tauri build --target x86_64-pc-windows-msvc --bundles nsis
-        env:
-          TAURI_BUNDLE_TARGETS: nsis
+      - name: Clean previous builds
+        run: |
+          if (Test-Path "src-tauri/target") { Remove-Item -Recurse -Force "src-tauri/target" }
+          if (Test-Path "$env:LOCALAPPDATA\tauri") { Remove-Item -Recurse -Force "$env:LOCALAPPDATA\tauri" }
+
+      - name: Build Tauri app (NSIS only)
+        run: npx tauri build --target x86_64-pc-windows-msvc -b nsis
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
