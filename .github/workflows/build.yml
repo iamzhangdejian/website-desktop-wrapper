@@ -37,6 +37,8 @@ jobs:
 
       - name: Build Tauri app
         run: npx tauri build --target x86_64-pc-windows-msvc --bundles nsis
+        env:
+          TAURI_BUNDLE_TARGETS: nsis
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
