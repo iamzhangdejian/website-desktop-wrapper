@@ -153,16 +153,17 @@
 
     window.__tauriInvoke = invoke;
 
-    try {
-      await listen("open-settings", () => {
-        window.__lastEvent = Date.now();
-        if (typeof window.openSettings === 'function') window.openSettings();
-      });
-      window.__eventStatus = "ok";
-    } catch(e) {
-      window.__eventStatus = "err:" + (e.message || e);
-    }
-    window.__moduleStatus = "loaded";
+    (async () => {
+      try {
+        await listen("open-settings", () => {
+          if (typeof window.openSettings === 'function') window.openSettings();
+        });
+        window.__eventStatus = "ok";
+      } catch(e) {
+        window.__eventStatus = "err:" + (e.message || e);
+      }
+      window.__moduleStatus = "loaded";
+    })();
   </script>
 
   <!-- Main script -->
