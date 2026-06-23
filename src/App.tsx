@@ -58,38 +58,33 @@ function App() {
 
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative", overflow: "hidden" }}>
+      <button
+        onClick={() => setShowSettings(true)}
+        style={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: 120,
+          height: 120,
+          borderRadius: "50%",
+          border: "4px solid white",
+          background: "red",
+          color: "white",
+          cursor: "pointer",
+          fontSize: 40,
+          fontWeight: "bold",
+          zIndex: 99999,
+          boxShadow: "0 0 30px rgba(255,0,0,0.8)",
+        }}
+      >
+        设置
+      </button>
       <iframe
         src={targetUrl}
         style={{ width: "100%", height: "100%", border: "none", display: "block" }}
         title="Main Content"
       />
-      <button
-        onClick={() => setShowSettings(true)}
-        title="Settings (Ctrl+,)"
-        style={{
-          position: "absolute",
-          bottom: 16,
-          right: 16,
-          width: 40,
-          height: 40,
-          borderRadius: "50%",
-          border: "none",
-          background: "rgba(0,0,0,0.5)",
-          color: "white",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 20,
-          zIndex: 9999,
-          opacity: 0.6,
-          transition: "opacity 0.2s",
-        }}
-        onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-        onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.6")}
-      >
-        ⚙
-      </button>
     </div>
   );
 }

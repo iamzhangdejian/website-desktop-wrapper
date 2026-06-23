@@ -35,10 +35,9 @@ pub fn run() {
             let menu_handle = app_handle.clone();
             app.on_menu_event(move |_app, event| {
                 let id = event.id().as_ref();
-                eprintln!("[menu] Event fired: id='{}'", id);
                 if id == "open_settings" {
                     commands::PENDING_OPEN_SETTINGS.store(true, std::sync::atomic::Ordering::SeqCst);
-                    eprintln!("[menu] Set PENDING_OPEN_SETTINGS = true");
+                    let _ = menu_handle.emit("open-settings", ());
                 } else {
                     handle_menu_event(&menu_handle, id);
                 }

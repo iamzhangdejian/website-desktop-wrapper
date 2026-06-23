@@ -30,17 +30,10 @@ pub fn save_and_close(
     app: AppHandle,
     new_settings: AppSettings,
 ) -> Result<String, String> {
-    eprintln!("[save_and_close] Called!");
-
-    new_settings.save(&app).map_err(|e| {
-        eprintln!("[save_and_close] Save error: {}", e);
-        format!("Save error: {}", e)
-    })?;
+    new_settings.save(&app).map_err(|e| format!("Save error: {}", e))?;
 
     let settings = app.state::<Mutex<AppSettings>>();
     *settings.lock().unwrap() = new_settings.clone();
-
-    eprintln!("[save_and_close] Settings saved: {}", new_settings.website_url);
 
     Ok("Settings saved successfully".to_string())
 }
