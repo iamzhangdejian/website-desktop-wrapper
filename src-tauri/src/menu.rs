@@ -12,6 +12,8 @@ pub fn create_menu<R: Runtime>(app: &AppHandle<R>) -> Result<Menu<R>, tauri::Err
         "File",
         true,
         &[
+            &MenuItem::with_id(app, "open_settings", "Settings...", true, Some("CmdOrCtrl+,"))?,
+            &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "close", "Close Window", true, Some("CmdOrCtrl+W"))?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(

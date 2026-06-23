@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SRIT Desktop</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #f3f4f6; font-family: system-ui, -apple-system, sans-serif; }
+    #iframe { width: 100%; height: 100%; border: none; display: block; }
+    #loading {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: #f3f4f6; color: #6b7280;
+      z-index: 1000; transition: opacity 0.4s ease;
+    }
+    #loading.hidden { opacity: 0; pointer-events: none; }
+    .spinner { width: 36px; height: 36px; border: 3px solid #e5e7eb; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Settings button */
+    #settings-btn {
+      position: fixed; top: 12px; right: 12px; z-index: 1500;
+      width: 36px; height: 36px; border-radius: 50%;
+      background: rgba(255,255,255,0.9); border: 1px solid #d1d5db;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: background 0.2s;
+    }
+    #settings-btn:hover { background: #fff; }
+    #settings-btn svg { width: 18px; height: 18px; color: #6b7280; }
+
+    /* Settings overlay */
+    #settings-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4); z-index: 2000;
+      align-items: center; justify-content: center;
+    }
+    #settings-overlay.open { display: flex; }
+    #settings-panel {
+      background: #fff; border-radius: 12px; padding: 24px;
+      width: 580px; max-height: 85vh; overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .panel-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+    .panel-header h2 { font-size: 20px; color: #111; }
+    .panel-header .subtitle { font-size: 13px; color: #6b7280; margin-top: 2px; }
+    .lang-btn {
+      padding: 4px 12px; border-radius: 6px; font-size: 13px; cursor: pointer;
+      background: #f3f4f6; border: 1px solid #d1d5db; color: #374151; font-weight: 500;
+    }
+    .lang-btn:hover { background: #e5e7eb; }
+    .section { margin-bottom: 20px; }
+    .section h3 { font-size: 15px; color: #111; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid #e5e7eb; }
+    label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 4px; margin-top: 10px; }
+    .hint { font-size: 12px; color: #9ca3af; margin-top: 2px; }
+    input[type="url"], input[type="number"], input[type="text"] {
+      width: 100%; padding: 8px 10px; border: 1px solid #d1d5db;
+      border-radius: 6px; font-size: 14px; outline: none;
+    }
+    input:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+    .row { display: flex; gap: 12px; }
+    .row > div { flex: 1; }
+    .checkbox-row { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; }
+    .checkbox-row input[type="checkbox"] { margin-top: 2px; width: 16px; height: 16px; }
+    .checkbox-row .cb-label { font-size: 13px; font-weight: 600; color: #374151; }
+    .checkbox-row .cb-hint { font-size: 12px; color: #9ca3af; }
+    .domain-item { display: flex; gap: 8px; margin-bottom: 6px; }
+    .domain-item input { flex: 1; }
+    .domain-item button {
+      padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer;
+      background: #fee2e2; color: #dc2626; font-size: 12px; font-weight: 500;
+    }
+    .domain-item button:hover { background: #fecaca; }
+    .add-domain { font-size: 13px; color: #3b82f6; cursor: pointer; background: none; border: none; font-weight: 500; margin-top: 4px; }
+    .add-domain:hover { color: #2563eb; }
+    .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #e5e7eb; }
+    .btn { padding: 8px 20px; border-radius: 6px; font-size: 14px; cursor: pointer; border: none; font-weight: 500; }
+    .btn-primary { background: #3b82f6; color: #fff; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-primary:disabled { background: #93c5fd; cursor: not-allowed; }
+    .btn-secondary { background: #e5e7eb; color: #374151; }
+    .btn-secondary:hover { background: #d1d5db; }
+    #settings-msg { margin-top: 12px; font-size: 13px; padding: 8px 12px; border-radius: 6px; display: none; }
+    #settings-msg.show { display: block; }
+    .msg-ok { background: #dcfce7; color: #166534; }
+    .msg-err { background: #fee2e2; color: #991b1b; }
+  </style>
+</head>
+<body>
+  <div id="loading"><div class="spinner"></div><p style="margin-top:14px;font-size:14px">Loading...</p></div>
+  <iframe id="iframe" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"></iframe>
+
+  <!-- Settings toggle button -->
+  <button id="settings-btn" title="Settings (Cmd/Ctrl+,)">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+  </button>
+
+  <!-- Settings overlay -->
+  <div id="settings-overlay">
+    <div id="settings-panel">
+      <div class="panel-header">
+        <div>
+          <h2 id="lbl-title">Application Settings</h2>
+          <div class="subtitle" id="lbl-subtitle">Configure the desktop wrapper application</div>
+        </div>
+        <button class="lang-btn" id="lang-toggle">中文</button>
+      </div>
+
+      <!-- Website Configuration -->
+      <div class="section">
+        <h3 id="lbl-website-config">Website Configuration</h3>
+        <label id="lbl-url">Website URL</label>
+        <input type="url" id="s-url" placeholder="https://example.com" />
+        <div class="hint" id="lbl-url-hint">The URL that will be loaded in the application window</div>
+
+        <label id="lbl-domains" style="margin-top:14px">Allowed Domains</label>
+        <div id="domains-list"></div>
+        <button class="add-domain" id="add-domain-btn">+ Add Domain</button>
+        <div class="hint" id="lbl-domains-hint">Reserved for future use. External links now open in system browser.</div>
+      </div>
+
+      <!-- Window Settings -->
+      <div class="section">
+        <h3 id="lbl-window">Window Settings</h3>
+        <div class="row">
+          <div><label id="lbl-ww">Window Width</label><input type="number" id="s-w" min="400" max="3840" /></div>
+          <div><label id="lbl-wh">Window Height</label><input type="number" id="s-h" min="300" max="2160" /></div>
+        </div>
+        <div class="row">
+          <div><label id="lbl-mw">Min Width</label><input type="number" id="s-mw" min="300" max="1920" /></div>
+          <div><label id="lbl-mh">Min Height</label><input type="number" id="s-mh" min="200" max="1080" /></div>
+        </div>
+      </div>
+
+      <!-- Features -->
+      <div class="section">
+        <h3 id="lbl-features">Features</h3>
+        <div class="checkbox-row">
+          <input type="checkbox" id="s-tray" />
+          <div>
+            <div class="cb-label" id="lbl-tray">System Tray</div>
+            <div class="cb-hint" id="lbl-tray-hint">Show application icon in system tray</div>
+          </div>
+        </div>
+        <div class="checkbox-row">
+          <input type="checkbox" id="s-notif" />
+          <div>
+            <div class="cb-label" id="lbl-notif">Desktop Notifications</div>
+            <div class="cb-hint" id="lbl-notif-hint">Show native system notifications for website messages</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="settings-msg"></div>
+
+      <div class="actions">
+        <button class="btn btn-secondary" id="s-cancel">Cancel</button>
+        <button class="btn btn-primary" id="s-save">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { invoke } from "@tauri-apps/api/core";
+    import { listen } from "@tauri-apps/api/event";
+    window.__tauriInvoke = invoke;
+
+    // Listen for open-settings event from Rust menu
+    listen("open-settings", (event) => {
+      console.log("[launcher] Received open-settings event:", event);
+      if (window.openSettings) {
+        window.openSettings();
+      } else {
+        console.warn("[launcher] openSettings not available yet");
+      }
+    }).then(unlisten => {
+      window.__unlistenSettings = unlisten;
+      console.log("[launcher] Listening for open-settings events");
+    }).catch(err => {
+      console.error("[launcher] Failed to listen for open-settings:", err);
+    });
+
+    console.log("[launcher] Tauri API loaded");
+  </script>
+
+  <script>
+    (async function() {
+      var iframe = document.getElementById('iframe');
+      var loading = document.getElementById('loading');
+      var overlay = document.getElementById('settings-overlay');
+      var msgEl = document.getElementById('settings-msg');
+      var defaultUrl = 'https://work.sritcloud.com:3100/oa-office/#/pages/login/index';
+      var currentSettings = null;
+      var lang = localStorage.getItem('launcher_lang') || 'en';
+
+      // i18n
+      var i18n = {
+        en: {
+          title: 'Application Settings', subtitle: 'Configure the desktop wrapper application',
+          websiteConfig: 'Website Configuration', url: 'Website URL',
+          urlHint: 'The URL that will be loaded in the application window',
+          domains: 'Allowed Domains', domainsHint: 'Reserved for future use. External links now open in system browser.',
+          addDomain: '+ Add Domain', remove: 'Remove',
+          window: 'Window Settings', ww: 'Window Width', wh: 'Window Height', mw: 'Min Width', mh: 'Min Height',
+          features: 'Features', tray: 'System Tray', trayHint: 'Show application icon in system tray',
+          notif: 'Desktop Notifications', notifHint: 'Show native system notifications for website messages',
+          save: 'Save Settings', saving: 'Saving...', cancel: 'Cancel',
+          saved: 'Settings saved successfully!', savedUrl: 'Settings saved! Reloading...',
+          langBtn: '中文'
+        },
+        zh: {
+          title: '应用设置', subtitle: '配置桌面包装器应用',
+          websiteConfig: '网站配置', url: '网站地址',
+          urlHint: '将在应用窗口中加载的 URL',
+          domains: '允许的域名', domainsHint: '保留供将来使用。外部链接现在在系统浏览器中打开。',
+          addDomain: '+ 添加域名', remove: '删除',
+          window: '窗口设置', ww: '窗口宽度', wh: '窗口高度', mw: '最小宽度', mh: '最小高度',
+          features: '功能', tray: '系统托盘', trayHint: '在系统托盘中显示应用图标',
+          notif: '桌面通知', notifHint: '为网站消息显示原生系统通知',
+          save: '保存设置', saving: '保存中...', cancel: '取消',
+          saved: '设置保存成功！', savedUrl: '设置已保存！即将重新加载...',
+          langBtn: 'English'
+        }
+      };
+
+      function applyLang() {
+        var t = i18n[lang];
+        document.getElementById('lbl-title').textContent = t.title;
+        document.getElementById('lbl-subtitle').textContent = t.subtitle;
+        document.getElementById('lbl-website-config').textContent = t.websiteConfig;
+        document.getElementById('lbl-url').textContent = t.url;
+        document.getElementById('lbl-url-hint').textContent = t.urlHint;
+        document.getElementById('lbl-domains').textContent = t.domains;
+        document.getElementById('lbl-domains-hint').textContent = t.domainsHint;
+        document.getElementById('add-domain-btn').textContent = t.addDomain;
+        document.getElementById('lbl-window').textContent = t.window;
+        document.getElementById('lbl-ww').textContent = t.ww;
+        document.getElementById('lbl-wh').textContent = t.wh;
+        document.getElementById('lbl-mw').textContent = t.mw;
+        document.getElementById('lbl-mh').textContent = t.mh;
+        document.getElementById('lbl-features').textContent = t.features;
+        document.getElementById('lbl-tray').textContent = t.tray;
+        document.getElementById('lbl-tray-hint').textContent = t.trayHint;
+        document.getElementById('lbl-notif').textContent = t.notif;
+        document.getElementById('lbl-notif-hint').textContent = t.notifHint;
+        document.getElementById('s-save').textContent = t.save;
+        document.getElementById('s-cancel').textContent = t.cancel;
+        document.getElementById('lang-toggle').textContent = t.langBtn;
+      }
+
+      // Tauri invoke
+      async function tauriInvoke(cmd, args) {
+        // Wait for module script to load invoke
+        var retries = 0;
+        while (!window.__tauriInvoke && retries < 50) {
+          await new Promise(function(r) { setTimeout(r, 100); });
+          retries++;
+        }
+        if (!window.__tauriInvoke) throw new Error('Tauri API not available after waiting');
+        return await window.__tauriInvoke(cmd, args);
+      }
+
+      async function loadSettings() {
+        try {
+          currentSettings = await tauriInvoke('get_settings');
+        } catch(e) {
+          console.warn('[launcher] Failed to load settings:', e);
+        }
+        return currentSettings;
+      }
+
+      function renderDomains(domains) {
+        var list = document.getElementById('domains-list');
+        list.innerHTML = '';
+        (domains || []).forEach(function(domain, i) {
+          var div = document.createElement('div');
+          div.className = 'domain-item';
+          div.innerHTML = '<input type="text" value="' + domain.replace(/"/g, '&quot;') + '" data-index="' + i + '" />' +
+            '<button data-index="' + i + '">' + (i18n[lang].remove) + '</button>';
+          list.appendChild(div);
+        });
+      }
+
+      function getDomains() {
+        var inputs = document.querySelectorAll('#domains-list input');
+        var domains = [];
+        inputs.forEach(function(inp) { if (inp.value.trim()) domains.push(inp.value.trim()); });
+        return domains;
+      }
+
+      function showMsg(text, isError) {
+        msgEl.textContent = text;
+        msgEl.className = 'show ' + (isError ? 'msg-err' : 'msg-ok');
+      }
+
+      function hideMsg() { msgEl.className = ''; msgEl.textContent = ''; }
+
+      function openSettings() {
+        console.log('[launcher] openSettings called');
+        loadSettings().then(function(s) {
+          if (s) {
+            document.getElementById('s-url').value = s.website_url || defaultUrl;
+            document.getElementById('s-w').value = s.window_width || 1280;
+            document.getElementById('s-h').value = s.window_height || 800;
+            document.getElementById('s-mw').value = s.min_width || 375;
+            document.getElementById('s-mh').value = s.min_height || 667;
+            document.getElementById('s-tray').checked = s.enable_tray !== false;
+            document.getElementById('s-notif').checked = s.enable_notifications !== false;
+            renderDomains(s.allowed_domains || []);
+          } else {
+            document.getElementById('s-url').value = defaultUrl;
+            renderDomains([]);
+          }
+          hideMsg();
+          applyLang();
+          overlay.classList.add('open');
+        });
+      }
+
+      function closeSettings() { overlay.classList.remove('open'); }
+
+      function toggleSettings() {
+        if (overlay.classList.contains('open')) closeSettings();
+        else openSettings();
+      }
+
+      // Expose globally for Rust menu eval
+      window.openSettings = openSettings;
+      window.closeSettings = closeSettings;
+      window.toggleSettings = toggleSettings;
+
+      // Poll check_pending_action to detect menu clicks
+      var pollCount = 0;
+      var lastPollError = '';
+      setInterval(async function() {
+        pollCount++;
+        try {
+          if (window.__tauriInvoke) {
+            var shouldOpen = await window.__tauriInvoke('check_pending_action');
+            if (shouldOpen) {
+              document.title = 'OPENED (poll #' + pollCount + ')';
+              openSettings();
+            }
+          } else {
+            document.title = 'NO_INVOKE (poll #' + pollCount + ')';
+          }
+        } catch(e) {
+          lastPollError = e.message || String(e);
+          document.title = 'POLL_ERR: ' + lastPollError.substring(0, 40);
+        }
+      }, 500);
+
+      async function saveSettings() {
+        var saveBtn = document.getElementById('s-save');
+        saveBtn.disabled = true;
+        saveBtn.textContent = i18n[lang].saving;
+        hideMsg();
+
+        var newSettings = {
+          website_url: document.getElementById('s-url').value,
+          window_width: parseInt(document.getElementById('s-w').value) || 1280,
+          window_height: parseInt(document.getElementById('s-h').value) || 800,
+          min_width: parseInt(document.getElementById('s-mw').value) || 375,
+          min_height: parseInt(document.getElementById('s-mh').value) || 667,
+          enable_tray: document.getElementById('s-tray').checked,
+          enable_notifications: document.getElementById('s-notif').checked,
+          allowed_domains: getDomains()
+        };
+
+        try {
+          var result = await tauriInvoke('save_and_close', { newSettings: newSettings });
+          showMsg(i18n[lang].savedUrl, false);
+          // Reload iframe with new URL
+          loading.classList.remove('hidden');
+          iframe.src = newSettings.website_url;
+          setTimeout(function() { closeSettings(); }, 1200);
+        } catch(e) {
+          showMsg('Error: ' + (e.message || e), true);
+          saveBtn.disabled = false;
+          saveBtn.textContent = i18n[lang].save;
+        }
+      }
+
+      // Event listeners
+      document.getElementById('settings-btn').addEventListener('click', openSettings);
+      document.getElementById('s-cancel').addEventListener('click', closeSettings);
+      document.getElementById('s-save').addEventListener('click', saveSettings);
+      overlay.addEventListener('click', function(e) { if (e.target === overlay) closeSettings(); });
+
+      document.getElementById('add-domain-btn').addEventListener('click', function() {
+        var list = document.getElementById('domains-list');
+        var div = document.createElement('div');
+        div.className = 'domain-item';
+        var idx = list.children.length;
+        div.innerHTML = '<input type="text" value="" placeholder="example.com" data-index="' + idx + '" />' +
+          '<button data-index="' + idx + '">' + i18n[lang].remove + '</button>';
+        list.appendChild(div);
+      });
+
+      document.getElementById('domains-list').addEventListener('click', function(e) {
+        if (e.target.tagName === 'BUTTON') {
+          e.target.parentElement.remove();
+        }
+      });
+
+      document.getElementById('lang-toggle').addEventListener('click', function() {
+        lang = lang === 'en' ? 'zh' : 'en';
+        localStorage.setItem('launcher_lang', lang);
+        applyLang();
+      });
+
+      document.addEventListener('keydown', function(e) {
+        if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+          e.preventDefault();
+          toggleSettings();
+        }
+        if (e.key === 'Escape') closeSettings();
+      });
+
+      // Initialize
+      applyLang();
+      var settings = await loadSettings();
+      var targetUrl = (settings && settings.website_url) ? settings.website_url : defaultUrl;
+      iframe.onload = function() { setTimeout(function() { loading.classList.add('hidden'); }, 300); };
+      iframe.src = targetUrl;
+
+      console.log('[launcher] Initialized, openSettings available:', typeof window.openSettings);
+    })();
+  </script>
+</body>
+</html>
